@@ -1,0 +1,124 @@
+// Cove mega-test: exercises the currently implemented language/compiler slice.
+// Keep this file within the actual Milestone 10 parser and backend subset.
+
+int add(int left, int right) {
+    left + right
+}
+
+fun multiply(left: Int, right: Int): Int {
+    left * right
+}
+
+fun factorial(value: Int): Int {
+    let result = 1;
+    let counter = 1;
+    while (counter <= value) {
+        result = result * counter;
+        counter = counter + 1;
+    }
+    result
+}
+
+fun choose(flag: Bool): Int {
+    let selected = 0;
+    if (flag) {
+        selected = 111;
+    } else {
+        selected = 222;
+    }
+    selected
+}
+
+void reportScore(int score) {
+    if (score >= 100) {
+        print("high score");
+    } else {
+        print("keep practicing");
+    }
+}
+
+fun inspect(message: String) {
+    print(message);
+}
+
+fun makeGreeting(name: String): String {
+    "Hello, " + name + "!"
+}
+
+fun main(): Int {
+    // Integer literals, explicit and inferred types, precedence, grouping.
+    let explicitInteger: Int = 40;
+    let inferredInteger = 2;
+    let arithmetic = explicitInteger + inferredInteger * 3;
+    let grouped = (explicitInteger + inferredInteger) * 3;
+    print("== Cove mega-test ==");
+    print(arithmetic);
+    print(grouped);
+    print(add(10, 32));
+    print(multiply(6, 7));
+
+    // Floating-point literals and arithmetic.
+    let ratio: Float = 3.5f;
+    let precise: Double = 3.5;
+    let combined = ratio * precise;
+    print(combined);
+
+    // Comparisons, equality, boolean operators, unary not.
+    let isLarge = arithmetic >= 40;
+    let isExpected = arithmetic == 46;
+    let isWrong = arithmetic != 46;
+    let shouldContinue = isLarge && isExpected;
+    let shouldStop = isWrong || !shouldContinue;
+    print(isLarge);
+    print(isExpected);
+    print(shouldContinue);
+    print(shouldStop);
+
+    // Conditional branches and phi-node candidates.
+    print(choose(true));
+    print(choose(false));
+    reportScore(120);
+    reportScore(12);
+
+    // While loop, mutable local slots, loop-carried values.
+    let loopCounter = 0;
+    let loopTotal = 0;
+    while (loopCounter < 5) {
+        loopTotal = loopTotal + loopCounter;
+        loopCounter = loopCounter + 1;
+    }
+    print(loopTotal);
+    print(factorial(5));
+
+    // Nested scopes and local shadowing.
+    let outerValue = 10;
+    {
+        let innerValue = outerValue + 5;
+        print(innerValue);
+    }
+    print(outerValue);
+
+    // String concatenation, function calls, and borrowed parameters.
+    let name: String = "Cove";
+    let greeting = makeGreeting(name);
+    print(greeting);
+    inspect(&greeting);
+    inspect(&greeting);
+
+    // Explicit ownership transfer. The source must not be used after move.
+    let original: String = "ownership transferred";
+    let recipient: String = move(original);
+    print(recipient);
+
+    // Constant expressions and branches for optimization passes.
+    let folded = (10 * 5) + (20 * 2);
+    print(folded);
+    if (1 + 1 == 2) {
+        print("constant branch: taken");
+    } else {
+        print("constant branch: should be removed");
+    }
+
+    print("== Cove mega-test complete ==");
+    return 0;
+}

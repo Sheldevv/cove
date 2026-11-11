@@ -1,0 +1,10 @@
+// EXPECTED FAILURE: COV7002
+fun inspectAndMove(shared: String, moved: String) {
+    print(shared);
+    print(moved);
+}
+
+fun main() {
+    let message: String = "borrow and move";
+    inspectAndMove(&message, move(message));
+}

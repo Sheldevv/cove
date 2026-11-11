@@ -1,0 +1,13 @@
+fun choose(flag: Bool): Int {
+    let value = 0;
+    if (flag) {
+        value = 7;
+    } else {
+        value = 7;
+    }
+    value
+}
+
+fun main() {
+    print(choose(true));
+}

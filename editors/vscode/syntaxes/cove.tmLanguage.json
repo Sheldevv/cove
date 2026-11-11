@@ -1,0 +1,223 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cove",
+  "scopeName": "source.cove",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#generic-types"
+    },
+    {
+      "include": "#array-type-suffix"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.cove",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.cove",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cove",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.cove",
+          "match": "\\\\."
+        },
+        {
+          "name": "meta.interpolation.cove",
+          "begin": "\\$\\{",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.interpolation.begin.cove"
+            }
+          },
+          "end": "}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.interpolation.end.cove"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.function.cove",
+          "begin": "\\b(fun)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.function.cove"
+            },
+            "2": {
+              "name": "entity.name.function.cove"
+            }
+          },
+          "end": "(?=\\{|;|$)",
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#generic-types"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#punctuation"
+            }
+          ]
+        },
+        {
+          "match": "\\b(class|struct|interface|enum|union)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.declaration.cove"
+            },
+            "2": {
+              "name": "entity.name.type.cove"
+            }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.control.cove",
+      "match": "\\b(fun|let|var|const|return|if|else|unless|while|until|for|foreach|in|loop|do|break|continue|move|unsafe|import|as|export|type|struct|class|interface|implements|enum|union|defer|public|private|protected|static|mut|object|where|is|throw|try|catch|finally)\\b"
+    },
+    "constants": {
+      "name": "constant.language.cove",
+      "match": "\\b(true|false|null|NULL|yes|no)\\b"
+    },
+    "generic-types": {
+      "begin": "\\b(Array|Map|HashMap|Set|Optional|Result|JsonArray|JsonObject)\\s*(<)",
+      "beginCaptures": {
+        "1": {
+          "name": "support.type.generic.cove"
+        },
+        "2": {
+          "name": "punctuation.definition.generic.begin.cove"
+        }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.generic.end.cove"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#generic-types"
+        },
+        {
+          "include": "#array-type-suffix"
+        },
+        {
+          "include": "#types"
+        },
+        {
+          "name": "punctuation.separator.type-arguments.cove",
+          "match": ","
+        },
+        {
+          "name": "keyword.operator.type-union.cove",
+          "match": "\\|"
+        }
+      ]
+    },
+    "array-type-suffix": {
+      "name": "punctuation.definition.array-type.cove",
+      "match": "\\[\\s*\\]"
+    },
+    "types": {
+      "name": "storage.type.cove",
+      "match": "\\b(void|Void|Bool|bool|Int|int|Float|float|Double|double|String|string|char|short|long|unsigned|signed|size_t|JsonValue|JsonNull|JsonBool|JsonNumber|JsonString|JsonArray|JsonObject|DynamicObject|Any|Unit|vararg)\\b"
+    },
+    "functions": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.call.cove"
+            }
+          }
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.cove",
+      "match": "\\b(?:0[xX][0-9A-Fa-f]+|0[bB][01]+|(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?)[fF]?\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.cove",
+      "match": "\\.\\.\\.|\\.\\.=|\\.\\.|==|!=|<=|>=|&&|\\|\\||\\+\\+|--|->|[+*/%<>=!&|^~?:-]"
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.brackets.cove",
+          "match": "[\\[\\]{}()]"
+        },
+        {
+          "name": "punctuation.separator.key-value.cove",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.comma.cove",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.statement.cove",
+          "match": ";"
+        }
+      ]
+    }
+  }
+}

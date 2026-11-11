@@ -1,0 +1,12 @@
+// Arithmetic, precedence, and function return values.
+fun square(value: Int): Int {
+    value * value
+}
+
+fun main(): Int {
+    let first = 6 + 4 * 2;
+    let second = square(first);
+    print("Arithmetic result:");
+    print(second);
+    0
+}

@@ -1,0 +1,21 @@
+// Current C-syntax compatibility slice (not full C ABI compatibility yet).
+// C-style function definitions and C float literal suffixes are supported.
+
+int add(int left, int right) {
+    left + right
+}
+
+void reportScore(int score) {
+    if (score >= 100) {
+        print("high score");
+    } else {
+        print("keep practicing");
+    }
+}
+
+int main(void) {
+    let ratio: Float = 3.5f;
+    print(ratio);
+    reportScore(add(20, 22));
+    return 0;
+}

@@ -1,0 +1,7 @@
+// EXPECTED FAILURE: COV6001
+fun main() {
+    let source: String = "move me";
+    let destination: String = move(source);
+    print(destination);
+    print(source); // ERROR: source was moved
+}

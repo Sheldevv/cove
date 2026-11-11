@@ -1,0 +1,9 @@
+
+// INTENTIONALLY INVALID!
+fun main() {
+    let original: String = "one owner only";
+    let duplicate: String = original;
+
+    print(original);
+    print(duplicate);
+}

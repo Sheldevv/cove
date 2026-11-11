@@ -1,0 +1,9 @@
+fun identity(value: Int): Int {
+    value + 0
+}
+
+fun main() {
+    let result = identity(40 + 2);
+    print("Optimization levels are working!");
+    print(result);
+}

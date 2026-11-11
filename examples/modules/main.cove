@@ -1,0 +1,6 @@
+import math;
+
+fun main(): Int {
+    print(math.add(20, 22));
+    return 0;
+}

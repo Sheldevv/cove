@@ -1,0 +1,8 @@
+fun greet(name: String): void {
+    print("Hello, " + name);
+}
+
+fun main() {
+    let message = "Cove is alive!";
+    greet(message);
+}

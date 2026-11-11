@@ -1,0 +1,40 @@
+{
+  "$schema": "../../schemas/project.schema.json",
+  "project": {
+    "name": "cove-multi-file-demo",
+    "version": "0.1.0",
+    "description": "A small multi-file Cove project."
+  },
+  "defaultTarget": "app",
+  "paths": {
+    "source": [
+      "src"
+    ],
+    "modules": [
+      "src",
+      "modules"
+    ],
+    "include": [
+      "include"
+    ],
+    "build": "build"
+  },
+  "compiler": {
+    "c": "auto",
+    "standard": "c11",
+    "optimization": "O2",
+    "flags": [],
+    "linkerFlags": []
+  },
+  "targets": {
+    "app": {
+      "type": "executable",
+      "entry": "src/main.cove",
+      "sources": [
+        "src/**/*.cove"
+      ],
+      "cSources": [],
+      "output": "cove-multi-file-demo"
+    }
+  }
+}

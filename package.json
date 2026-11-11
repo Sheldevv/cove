@@ -1,0 +1,45 @@
+{
+  "name": "@sheldev/cove-compiler",
+  "version": "0.1.4",
+  "type": "module",
+  "description": "An experimental C-superset compiler and native build tool.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cove": "dist/src/cli/index.js"
+  },
+  "files": [
+    "dist/src/",
+    "schemas/",
+    "docs/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/src/cli/index.js",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "lsp": "tsx src/cli/lsp.ts",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "cove",
+    "programming-language",
+    "compiler",
+    "c",
+    "transpiler"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

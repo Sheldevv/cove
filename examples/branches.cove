@@ -1,0 +1,15 @@
+// Branch lowering and constant-branch optimization.
+fun main(): Int {
+    let score = 42;
+    if (score >= 40) {
+        print("passed");
+    } else {
+        print("try again");
+    }
+    if (true) {
+        print("this branch is known at compile time");
+    } else {
+        print("this branch is unreachable");
+    }
+    0
+}

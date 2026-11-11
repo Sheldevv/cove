@@ -1,0 +1,12 @@
+// Constant arithmetic and compile-time branch elimination.
+fun main(): Int {
+    let answer = (10 * 5) + (20 * 2);
+    print("The optimized answer is:");
+    print(answer);
+    if (1 + 1 == 2) {
+        print("constant condition: true");
+    } else {
+        print("unreachable branch");
+    }
+    0
+}

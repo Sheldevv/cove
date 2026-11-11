@@ -1,0 +1,10 @@
+// String concatenation and function calls.
+fun makeGreeting(name: String): String {
+    "Hello, " + name + "!"
+}
+
+fun main(): Int {
+    let greeting = makeGreeting("Cove");
+    print(greeting);
+    0
+}

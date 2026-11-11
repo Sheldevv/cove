@@ -1,0 +1,9 @@
+fun inspectBoth(shared: String, exclusive: String) {
+    print(shared);
+    print(exclusive);
+}
+
+fun main() {
+    let message: String = "borrow conflict";
+    inspectBoth(&message, &mut message); // ERROR: shared and exclusive borrow overlap
+}

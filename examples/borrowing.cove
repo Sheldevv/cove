@@ -1,0 +1,10 @@
+fun inspect(value: String) {
+    print(value);
+}
+
+fun main() {
+    let message: String = "Borrowing does not transfer ownership";
+    inspect(&message);
+    inspect(&message);
+    print(message);
+}

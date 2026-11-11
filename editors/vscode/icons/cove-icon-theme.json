@@ -1,0 +1,10 @@
+{
+  "iconDefinitions": {
+    "_cove": {
+      "iconPath": "./cove-file.svg"
+    }
+  },
+  "fileExtensions": {
+    "cove": "_cove"
+  }
+}

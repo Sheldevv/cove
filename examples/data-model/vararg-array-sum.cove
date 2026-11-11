@@ -1,0 +1,15 @@
+fun sum(numbers: vararg<Int>): Int {
+    let total = 0;
+    total += number for number in numbers;
+    total
+}
+
+fun main() {
+    let numbers: Array<Int> = [10, 20, 30];
+
+    print(numbers[0]);
+    print(numbers[1]);
+    print(numbers[2]);
+
+    print(sum(1, 2, 3, 4, 5));
+}

@@ -1,0 +1,95 @@
+{
+  "name": "cove-vscode",
+  "displayName": "Cove Language Support",
+  "description": "Language support for the Cove C-superset language, powered by the Cove language server.",
+  "version": "0.2.1",
+  "publisher": "cove-language",
+  "license": "MIT",
+  "icon": "icons/logo.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:cove"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "cove-file-icons",
+        "label": "Cove File Icons",
+        "path": "./icons/cove-icon-theme.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "cove",
+        "aliases": [
+          "Cove",
+          "cove"
+        ],
+        "extensions": [
+          ".cove"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cove",
+        "scopeName": "source.cove",
+        "path": "./syntaxes/cove.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Cove",
+      "properties": {
+        "cove.server.command": {
+          "type": "string",
+          "default": "npm",
+          "description": "Command used to start the Cove language server."
+        },
+        "cove.server.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "run",
+            "--silent",
+            "lsp"
+          ],
+          "description": "Arguments passed to the Cove language-server command. The default suppresses npm's script banner so stdout stays LSP-clean."
+        },
+        "cove.server.cwd": {
+          "type": "string",
+          "default": "",
+          "description": "Working directory for the language server. Defaults to the first workspace folder."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[cove]": {
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": false
+        },
+        "editor.suggestOnTriggerCharacters": true,
+        "editor.tabCompletion": "on"
+      }
+    }
+  },
+  "scripts": {
+    "package": "npx --yes @vscode/vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^4.1.0"
+  }
+}

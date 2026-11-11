@@ -1,0 +1,13 @@
+fun choose(flag: Bool): Int {
+  let result = 0;
+  if (flag) {
+    result = 10;
+  } else {
+    result = 20;
+  }
+  result
+}
+
+fun main() {
+  print(choose(true));
+}
