@@ -459,3 +459,55 @@ test("accepts the equivalent postfix array type spelling", () => {
   assert.ok(numbers && numbers.kind === "VariableDeclaration");
   assert.equal(result.typedProgram?.variableTypes.get(numbers), "Array<Int>");
 });
+
+
+test("parses array member access and indexed assignment", () => {
+  const result = compileFrontend({
+    path: "array-members.cove",
+    text: `fun main() { let values: Array<Int> = [1, 2]; values[0] = 42; values.push(3); print(values.length); }`,
+  });
+  assert.equal(result.diagnostics.hasErrors, false, result.diagnostics.items.map((item) => item.message).join("\\n"));
+  const main = result.program.declarations.find((item) => item.kind === "FunctionDeclaration" && item.name === "main");
+  assert.ok(main && main.kind === "FunctionDeclaration");
+  assert.equal(main.body.statements.length, 4);
+});
+
+
+test("owned arrays cannot be copied implicitly", () => {
+  const result = compileFrontend({
+    path: "array-copy.cove",
+    text: `fun main() { let source: Array<Int> = [1, 2]; let alias: Array<Int> = source; }`,
+  });
+  assert.ok(result.diagnostics.items.some((item) => item.code === "COV6004"));
+});
+
+test("owned arrays can be transferred with move()", () => {
+  const result = compileFrontend({
+    path: "array-move.cove",
+    text: `fun main() { let source: Array<Int> = [1, 2]; let destination: Array<Int> = move(source); print(destination.length); }`,
+  });
+  assert.equal(result.diagnostics.hasErrors, false, result.diagnostics.items.map((item) => item.message).join("\\n"));
+});
+
+test("reading an array after moving it is rejected", () => {
+  const result = compileFrontend({
+    path: "array-move-read.cove",
+    text: `fun main() { let source: Array<Int> = [1, 2]; let destination: Array<Int> = move(source); print(source.length); }`,
+  });
+  assert.ok(result.diagnostics.items.some((item) => item.code === "COV6001"));
+});
+
+
+test("implicit return cannot copy an owned array", () => {
+  const result = compileFrontend({
+    path: "array-implicit-copy.cove",
+    text: `fun make(): Array<Int> { let values: Array<Int> = [1, 2]; values } fun main() {}`,
+  });
+  assert.ok(result.diagnostics.items.some((item) => item.code === "COV6004"));
+});
+
+
+test("empty array literals require an explicit element type", () => {
+  const result = compileFrontend({ path: "empty-array.cove", text: `fun main() { let values = []; }` });
+  assert.ok(result.diagnostics.items.some((item) => item.code === "COV4044"));
+});

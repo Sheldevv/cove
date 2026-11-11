@@ -131,3 +131,179 @@ fun main() {
   assert.notEqual(boundsRun.status, 0, "out-of-bounds access should terminate safely");
   assert.match(boundsRun.stderr, /out of bounds/);
 });
+
+
+test("generated C integration: owned dynamic arrays grow, mutate, and clean up", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-dynamic-arrays-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun editCopy(values: Array<Int>): Int {
+    values.push(99);
+    values[0] = 77;
+    values.length
+}
+fun main(): Int {
+    let values: Array<Int> = [];
+    values.push(10);
+    values.push(20);
+    values.push(30);
+    values.push(40);
+    values.push(50);
+    values[0] = 42;
+    values[1] += 5;
+    print(values.length);
+    print(values[0]);
+    print(values[1]);
+    print(editCopy(values));
+    print(values[0]);
+    return 0;
+}`;
+  const compiled = compileToC({ path: "dynamic-arrays.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  assert.match(compiled.cSource, /size_t capacity;/);
+  assert.match(compiled.cSource, /realloc\(/);
+  const cPath = join(directory, "dynamic-arrays.c");
+  const executable = join(directory, "dynamic-arrays");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "5\n42\n25\n6\n42\n");
+
+  const sanitizerExecutable = join(directory, "dynamic-arrays-asan");
+  const sanitizerBuild = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", "-fsanitize=address,undefined", "-fno-omit-frame-pointer", cPath, "-o", sanitizerExecutable], { encoding: "utf8" });
+  if (sanitizerBuild.status === 0) {
+    const sanitizedRun = spawnSync(sanitizerExecutable, [], {
+      encoding: "utf8",
+      env: { ...process.env, ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1" },
+    });
+    assert.equal(sanitizedRun.status, 0, `ASan/UBSan reported a runtime issue:\n${sanitizedRun.stderr}`);
+    assert.equal(sanitizedRun.stdout, run.stdout);
+  }
+});
+
+
+test("generated C integration: moving an array transfers its allocation exactly once", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-array-move-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun main(): Int {
+    let original: Array<Int> = [11, 22, 33];
+    let transferred: Array<Int> = move(original);
+    print(transferred.length);
+    print(transferred[1]);
+    return 0;
+}`;
+  const compiled = compileToC({ path: "array-move.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  const cPath = join(directory, "array-move.c");
+  const executable = join(directory, "array-move");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "3\n22\n");
+});
+
+
+test("generated C integration: returned arrays transfer ownership and literal arguments borrow", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-array-return-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun makeValues(): Array<Int> {
+    let values: Array<Int> = [4, 5, 6];
+    move(values)
+}
+fun sum(values: Array<Int>): Int {
+    let total = 0;
+    total += value for value in values;
+    total
+}
+fun main(): Int {
+    let values: Array<Int> = makeValues();
+    print(sum([1, 2, 3]));
+    print(values.length);
+    return 0;
+}`;
+  const compiled = compileToC({ path: "array-return.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  const cPath = join(directory, "array-return.c");
+  const executable = join(directory, "array-return");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "6\n3\n");
+});
+
+
+test("generated C integration: arrays declared in loop scopes are dropped each iteration", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-array-scope-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun main() {
+    let index = 0;
+    while (index < 3) {
+        let values: Array<Int> = [];
+        values.push(index);
+        print(values[0]);
+        index += 1;
+    }
+}`;
+  const compiled = compileToC({ path: "array-scope.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  assert.match(compiled.cSource, /owns_data\) free\(slot/);
+  const cPath = join(directory, "array-scope.c");
+  const executable = join(directory, "array-scope");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "0\n1\n2\n");
+
+  const sanitizerExecutable = join(directory, "array-scope-asan");
+  const sanitizerBuild = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", "-fsanitize=address,undefined", "-fno-omit-frame-pointer", cPath, "-o", sanitizerExecutable], { encoding: "utf8" });
+  if (sanitizerBuild.status === 0) {
+    const sanitizedRun = spawnSync(sanitizerExecutable, [], {
+      encoding: "utf8",
+      env: { ...process.env, ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1" },
+    });
+    assert.equal(sanitizedRun.status, 0, `ASan/UBSan reported a runtime issue:\n${sanitizedRun.stderr}`);
+    assert.equal(sanitizedRun.stdout, run.stdout);
+  }
+});
+
+
+test("generated C integration: indexed writes are bounds checked and early returns clean arrays", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-array-early-return-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun first(): Int {
+    let values: Array<Int> = [31, 32];
+    return values[0];
+}
+fun main(): Int {
+    print(first());
+    return 0;
+}`;
+  const compiled = compileToC({ path: "array-early-return.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  const cPath = join(directory, "array-early-return.c");
+  const executable = join(directory, "array-early-return");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "31\n");
+
+  const outOfBoundsSource = `fun main() { let values: Array<Int> = [1]; values[1] = 2; }`;
+  const outOfBounds = compileToC({ path: "array-write-bounds.cove", text: outOfBoundsSource });
+  assert.equal(outOfBounds.diagnostics.hasErrors, false, outOfBounds.diagnostics.items.map((d) => d.message).join("; "));
+  const boundsPath = join(directory, "array-write-bounds.c");
+  const boundsExecutable = join(directory, "array-write-bounds");
+  await writeFile(boundsPath, outOfBounds.cSource, "utf8");
+  const boundsBuild = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", boundsPath, "-o", boundsExecutable], { encoding: "utf8" });
+  assert.equal(boundsBuild.status, 0, boundsBuild.stderr);
+  const boundsRun = spawnSync(boundsExecutable, [], { encoding: "utf8" });
+  assert.notEqual(boundsRun.status, 0, "out-of-bounds indexed writes must terminate safely");
+});

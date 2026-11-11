@@ -13,7 +13,7 @@ export interface BlockStatement { readonly kind: "BlockStatement"; readonly stat
 export interface IfStatement { readonly kind: "IfStatement"; readonly condition: Expression; readonly thenBranch: Statement; readonly elseBranch?: Statement; readonly span: SourceSpan; }
 export interface WhileStatement { readonly kind: "WhileStatement"; readonly condition: Expression; readonly body: Statement; readonly span: SourceSpan; }
 export interface ForEachStatement { readonly kind: "ForEachStatement"; readonly variable: string; readonly iterable: Expression; readonly body: Statement; readonly span: SourceSpan; }
-export type Expression = LiteralExpression | IdentifierExpression | UnaryExpression | BinaryExpression | CallExpression | GroupExpression | AssignmentExpression | ArrayLiteralExpression | IndexExpression;
+export type Expression = LiteralExpression | IdentifierExpression | UnaryExpression | BinaryExpression | CallExpression | GroupExpression | AssignmentExpression | ArrayLiteralExpression | IndexExpression | MemberAccessExpression;
 export interface LiteralExpression { readonly kind: "LiteralExpression"; readonly value: string | number | boolean | null; readonly literalType?: "Float" | "Double"; readonly span: SourceSpan; }
 export interface IdentifierExpression { readonly kind: "IdentifierExpression"; readonly name: string; readonly span: SourceSpan; }
 export interface UnaryExpression { readonly kind: "UnaryExpression"; readonly operator: string; readonly operand: Expression; readonly span: SourceSpan; }
@@ -23,3 +23,4 @@ export interface GroupExpression { readonly kind: "GroupExpression"; readonly ex
 export interface AssignmentExpression { readonly kind: "AssignmentExpression"; readonly target: Expression; readonly value: Expression; readonly operator?: string; readonly span: SourceSpan; }
 export interface ArrayLiteralExpression { readonly kind: "ArrayLiteralExpression"; readonly elements: Expression[]; readonly span: SourceSpan; }
 export interface IndexExpression { readonly kind: "IndexExpression"; readonly target: Expression; readonly index: Expression; readonly span: SourceSpan; }
+export interface MemberAccessExpression { readonly kind: "MemberAccessExpression"; readonly target: Expression; readonly member: string; readonly span: SourceSpan; }

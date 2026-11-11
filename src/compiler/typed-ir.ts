@@ -45,6 +45,7 @@ export function formatTypedProgram(typed: TypedProgram): string {
       case "AssignmentExpression": return `Assign<${typeOf(expression)}>(${formatExpression(expression.target)} ${expression.operator ?? "="} ${formatExpression(expression.value)})`;
       case "ArrayLiteralExpression": return `Array<${typeOf(expression.elements[0] ?? expression)}>(${expression.elements.map(formatExpression).join(", ")})`;
       case "IndexExpression": return `Index<${typeOf(expression)}>(${formatExpression(expression.target)}, ${formatExpression(expression.index)})`;
+      case "MemberAccessExpression": return `Member<${typeOf(expression)}>(${formatExpression(expression.target)}.${expression.member})`;
       case "CallExpression":
         return `Call<${typeOf(expression)}>(${formatExpression(expression.callee)}${expression.arguments.length ? `, ${expression.arguments.map(formatExpression).join(", ")}` : ""})`;
     }

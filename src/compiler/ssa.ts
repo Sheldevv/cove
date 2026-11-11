@@ -25,7 +25,13 @@ function promoteFunction(fn: IRFunction): { fn: IRFunction; promotedSlots: numbe
   let promotedSlots = 0;
   let insertedPhis = 0;
   const cfg = analyzeCFG({ ...fn, blocks });
-  const slotIds = blocks.flatMap((b) => b.instructions.filter((i) => i.op === "alloca").map((i) => i.result.id));
+  const escapedSlots = new Set(blocks.flatMap((b) => b.instructions
+    .filter((i) => i.op === "arraypush" || i.op === "arrayset" || i.op === "arraymove" || i.op === "arraydrop")
+    .map((i) => i.slot.id)));
+  const slotIds = blocks.flatMap((b) => b.instructions
+    .filter((i): i is Extract<IRInstruction, { op: "alloca" }> =>
+      i.op === "alloca" && !escapedSlots.has(i.result.id) && !/^Array<.+>$/.test(i.result.type))
+    .map((i) => i.result.id));
   for (const slotId of slotIds) {
     const slotDef = blocks.flatMap((b) => b.instructions).find((i) => i.op === "alloca" && i.result.id === slotId);
     if (!slotDef || slotDef.op !== "alloca") continue;
@@ -113,7 +119,10 @@ function rewriteInstruction(instruction: IRInstruction, replace: (operand: IROpe
     case "copy": return { ...instruction, source: replace(instruction.source) };
     case "phi": return { ...instruction, incoming: instruction.incoming.map((v) => ({ ...v, value: replace(v.value) })) };
     case "call": return { ...instruction, args: instruction.args.map(replace) };
-    case "array": return { ...instruction, elements: instruction.elements.map(replace) };
+    case "array": case "arrayview": return { ...instruction, elements: instruction.elements.map(replace) };
+    case "arrayset": return { ...instruction, index: replace(instruction.index), source: replace(instruction.source) };
+    case "arraypush": return { ...instruction, source: replace(instruction.source) };
+    case "arraymove": case "arraydrop": return instruction;
     case "index": return { ...instruction, array: replace(instruction.array), index: replace(instruction.index) };
     case "arraylen": return { ...instruction, array: replace(instruction.array) };
     case "store": return { ...instruction, source: replace(instruction.source) };
