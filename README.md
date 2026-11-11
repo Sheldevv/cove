@@ -71,8 +71,10 @@ assignments, `Array<T>` / `T[]` types, array literals and checked indexing,
 
 The first dynamic-array runtime slice is implemented on the Milestone 17
 branch. Owned local `Array<T>` values use typed pointer/length/capacity storage;
-array literals allocate storage, `push()` grows geometrically, `.length` reads
-the current length, and indexed reads/writes are bounds checked. `+=` is also
+array literals allocate storage, `push()` grows geometrically, `.length` and
+`.capacity` expose array metadata, `reserve()` preallocates storage,
+`shrinkToFit()` reduces logical capacity to length, and `clear()` resets length
+while retaining capacity. Indexed reads/writes are bounds checked. `+=` is also
 supported for indexed numeric elements.
 
 Owned arrays are non-Copy: use `move(array)` to transfer ownership. Local array
@@ -83,9 +85,8 @@ array.
 
 Nested block locals are dropped at block exit, including on each loop
 iteration; function-scope arrays are dropped on every return. This is an initial
-vertical slice, not the complete collection API. `pop`/`Option`, `removeAt`,
-capacity controls, slices, shared ownership, and generic element destructors
-remain future work.
+vertical slice, not the complete collection API. `pop`/`Option`, `removeAt`, configurable initial/maximum capacities, slices,
+shared ownership, and generic element destructors remain future work.
 
 ### Ownership and runtime limitations
 

@@ -13,10 +13,14 @@ export type IRInstruction =
   | { readonly op: "arrayview"; readonly result: IRValue; readonly elements: readonly IROperand[]; readonly span: SourceSpan }
   | { readonly op: "arrayset"; readonly slot: IRValue; readonly index: IROperand; readonly source: IROperand; readonly span: SourceSpan }
   | { readonly op: "arraypush"; readonly slot: IRValue; readonly source: IROperand; readonly span: SourceSpan }
+  | { readonly op: "arrayreserve"; readonly slot: IRValue; readonly capacity: IROperand; readonly span: SourceSpan }
+  | { readonly op: "arrayshrink"; readonly slot: IRValue; readonly span: SourceSpan }
+  | { readonly op: "arrayclear"; readonly slot: IRValue; readonly span: SourceSpan }
   | { readonly op: "arraymove"; readonly result: IRValue; readonly slot: IRValue; readonly span: SourceSpan }
   | { readonly op: "arraydrop"; readonly slot: IRValue; readonly span: SourceSpan }
   | { readonly op: "index"; readonly result: IRValue; readonly array: IROperand; readonly index: IROperand; readonly boundsCheck: boolean; readonly span: SourceSpan }
   | { readonly op: "arraylen"; readonly result: IRValue; readonly array: IROperand; readonly span: SourceSpan }
+  | { readonly op: "arraycap"; readonly result: IRValue; readonly array: IROperand; readonly span: SourceSpan }
   | { readonly op: "copy"; readonly result: IRValue; readonly source: IROperand; readonly span: SourceSpan }
   | { readonly op: "phi"; readonly result: IRValue; readonly incoming: readonly { readonly block: string; readonly value: IROperand }[]; readonly span: SourceSpan }
   | { readonly op: "alloca"; readonly result: IRValue; readonly span: SourceSpan }
@@ -58,6 +62,7 @@ class FunctionLowerer {
       const value = this.value(typed.parameterTypes.get(p) ?? "Unknown");
       const slot = this.value(value.type);
       this.locals.set(p.name, slot);
+      if (/^Array<.+>$/.test(value.type)) this.arrayScopeSlots[0]!.push(slot);
       this.emit({ op: "alloca", result: slot, span: p.span });
       this.emit({ op: "store", slot, source: { kind: "value", value }, span: p.span });
       return { name: p.name, type: value.type, value, ...(p.vararg ? { vararg: true } : {}) };
@@ -217,15 +222,30 @@ class FunctionLowerer {
       case "MemberAccessExpression": {
         const array = this.expression(e.target);
         const result = this.value(type);
-        this.emit({ op: "arraylen", result, array, span: e.span });
+        this.emit({ op: e.member === "capacity" ? "arraycap" : "arraylen", result, array, span: e.span });
         return { kind: "value", value: result };
       }
       case "CallExpression": {
-        if (e.callee.kind === "MemberAccessExpression" && e.callee.member === "push" && e.callee.target.kind === "IdentifierExpression") {
+        if (e.callee.kind === "MemberAccessExpression" && e.callee.target.kind === "IdentifierExpression") {
           const slot = this.locals.get(e.callee.target.name);
-          const source = e.arguments[0] ? this.expression(e.arguments[0]) : this.literal(null, "Null");
-          if (slot) this.emit({ op: "arraypush", slot, source, span: e.span });
-          return this.literal(null, "Void");
+          if (slot && e.callee.member === "push") {
+            const source = e.arguments[0] ? this.expression(e.arguments[0]) : this.literal(null, "Null");
+            this.emit({ op: "arraypush", slot, source, span: e.span });
+            return this.literal(null, "Void");
+          }
+          if (slot && e.callee.member === "reserve") {
+            const capacity = e.arguments[0] ? this.expression(e.arguments[0]) : this.literal(0, "Int");
+            this.emit({ op: "arrayreserve", slot, capacity, span: e.span });
+            return this.literal(null, "Void");
+          }
+          if (slot && e.callee.member === "shrinkToFit") {
+            this.emit({ op: "arrayshrink", slot, span: e.span });
+            return this.literal(null, "Void");
+          }
+          if (slot && e.callee.member === "clear") {
+            this.emit({ op: "arrayclear", slot, span: e.span });
+            return this.literal(null, "Void");
+          }
         }
         if (e.callee.kind === "IdentifierExpression" && e.callee.name === "move") {
           const argument = e.arguments[0];
@@ -309,10 +329,14 @@ export function formatIR(module: IRModule): string {
         case "arrayview": lines.push(`    ${result}arrayview [${i.elements.map(operand).join(", ")}]`); break;
         case "arrayset": lines.push(`    arrayset %${i.slot.id}[${operand(i.index)}] = ${operand(i.source)}`); break;
         case "arraypush": lines.push(`    arraypush %${i.slot.id}, ${operand(i.source)}`); break;
+        case "arrayreserve": lines.push(`    arrayreserve %${i.slot.id}, ${operand(i.capacity)}`); break;
+        case "arrayshrink": lines.push(`    arrayshrink %${i.slot.id}`); break;
+        case "arrayclear": lines.push(`    arrayclear %${i.slot.id}`); break;
         case "arraymove": lines.push(`    ${result}arraymove %${i.slot.id}`); break;
         case "arraydrop": lines.push(`    arraydrop %${i.slot.id}`); break;
         case "index": lines.push(`    ${result}index ${operand(i.array)}[${operand(i.index)}]`); break;
         case "arraylen": lines.push(`    ${result}length ${operand(i.array)}`); break;
+        case "arraycap": lines.push(`    ${result}capacity ${operand(i.array)}`); break;
         case "print": lines.push(`    print ${operand(i.value)}`); break;
         case "return": lines.push(`    ret${i.value ? ` ${operand(i.value)}` : ""}`); break;
         case "branch": lines.push(`    br ${operand(i.condition)}, ${i.thenBlock}, ${i.elseBlock}`); break;

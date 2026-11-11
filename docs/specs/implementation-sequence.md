@@ -4,7 +4,7 @@ The data-model design is accepted, but implementation is incremental. Do not mar
 
 1. **Type-system foundation:** structured generic type representation, canonical array spelling, const-qualified bindings, struct declarations and field checking.
 2. **Dynamic array runtime (Milestone 17):** mutable owned array representation, literals that allocate owned storage, automatic growth, `length`, `push`, indexed reads/writes, bounds checks, and deterministic cleanup hooks. Preserve borrowed array views for varargs and C interop.
-3. **Array API completion:** `pop`/`Option`, `popOrNull`/nullable types, ordered and swap removal, slices and copies, capacity controls, nested arrays, contiguous matrices, iteration methods, searching and sorting. Higher-order methods depend on function values/lambdas.
+3. **Array API completion:** `pop`/`Option`, `popOrNull`/nullable types, ordered and swap removal, slices and copies, configurable initial/maximum capacities, nested arrays, contiguous matrices, iteration methods, searching and sorting. `reserve`, `shrinkToFit`, and `clear` are part of the Milestone 17 initial implementation. Higher-order methods depend on function values/lambdas.
 4. **Ownership integration:** moves, shared reference counting, borrowed views, mutable slice exclusivity, destruction on all exits, and failure paths.
 5. **Map vertical slice:** insertion-ordered `Map`, unordered `HashMap`, colon literals, key constraints, nullable lookup, iteration and runtime tests.
 6. **Typed object completion:** class/struct construction, field access, method lowering, visibility and ownership semantics.

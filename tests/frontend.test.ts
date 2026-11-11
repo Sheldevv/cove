@@ -511,3 +511,23 @@ test("empty array literals require an explicit element type", () => {
   const result = compileFrontend({ path: "empty-array.cove", text: `fun main() { let values = []; }` });
   assert.ok(result.diagnostics.items.some((item) => item.code === "COV4044"));
 });
+
+test("type-checks Array reserve, shrinkToFit, and clear methods", () => {
+  const valid = compileFrontend({
+    path: "array-capacity-methods.cove",
+    text: `fun main() { let values: Array<Int> = [1, 2]; values.reserve(64); values.shrinkToFit(); values.clear(); }`,
+  });
+  assert.equal(valid.diagnostics.hasErrors, false, valid.diagnostics.items.map((item) => item.message).join("\\n"));
+
+  const invalidCapacity = compileFrontend({
+    path: "array-reserve-type.cove",
+    text: `fun main() { let values: Array<Int> = []; values.reserve("large"); }`,
+  });
+  assert.equal(invalidCapacity.diagnostics.items.some((item) => item.code === "COV4046"), true);
+
+  const invalidArity = compileFrontend({
+    path: "array-clear-arity.cove",
+    text: `fun main() { let values: Array<Int> = []; values.clear(1); }`,
+  });
+  assert.equal(invalidArity.diagnostics.items.some((item) => item.code === "COV4047"), true);
+});

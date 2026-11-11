@@ -110,7 +110,9 @@ export function validateSSA(module: IRModule): string[] {
         case "call": ins.args.forEach((a) => check(a)); break;
         case "array": ins.elements.forEach((a) => check(a)); break;
         case "index": check(ins.array); check(ins.index); break;
-        case "arraylen": check(ins.array); break;
+        case "arraylen": case "arraycap": check(ins.array); break;
+        case "arrayreserve": check(ins.capacity); break;
+        case "arrayshrink": case "arrayclear": break;
         case "store": check(ins.source); break;
         case "print": check(ins.value); break;
         case "return": if (ins.value) check(ins.value); break;

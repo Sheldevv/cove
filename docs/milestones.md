@@ -139,7 +139,7 @@ This is deliberately an initial fixed-size array-view implementation, not the fu
 ## Milestone 17 — Dynamic array runtime (in progress; initial vertical slice)
 
 - [x] Add member-access AST/parser support and indexed assignment syntax.
-- [x] Add semantic checks for `.length`, `push(value)`, indexed writes, and element types.
+- [x] Add semantic checks for `.length`, `.capacity`, `push(value)`, `reserve(n)`, `shrinkToFit()`, `clear()`, indexed writes, and element types.
 - [x] Add typed owned array storage (`data`, `length`, `capacity`, `owns_data`) in generated C.
 - [x] Allocate array literals and support explicitly typed empty arrays.
 - [x] Grow with geometric `realloc` and guard allocation-size/capacity overflow.
@@ -153,8 +153,10 @@ This is deliberately an initial fixed-size array-view implementation, not the fu
 Remaining gates:
 - [x] Cleanup at nested block exits, loop-iteration exits, and function returns (including early returns).
 - [ ] General element destruction/move traits for nested or non-Copy element types.
-- [ ] Initial/max capacity constructor options and `reserve`/`shrinkToFit`.
+- [x] Add `reserve(n)`, `shrinkToFit()`, and `clear()` with capacity-preserving clear semantics.
+- [ ] Initial/max capacity constructor options.
 - [ ] `pop`/`Option`, `popOrNull`/nullable types, removal, slices, and shared ownership.
-- [ ] Broader sanitizer and compiler matrix testing.
+- [x] Add sanitizer-backed integration coverage for capacity operations and borrowed-parameter detachment.
+- [ ] Broader compiler matrix testing (including Clang).
 
 The current implementation is an initial vertical slice. Do not treat Milestone 17 as complete until the remaining ownership, cleanup, and runtime gates pass.

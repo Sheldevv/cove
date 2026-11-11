@@ -26,7 +26,7 @@ function promoteFunction(fn: IRFunction): { fn: IRFunction; promotedSlots: numbe
   let insertedPhis = 0;
   const cfg = analyzeCFG({ ...fn, blocks });
   const escapedSlots = new Set(blocks.flatMap((b) => b.instructions
-    .filter((i) => i.op === "arraypush" || i.op === "arrayset" || i.op === "arraymove" || i.op === "arraydrop")
+    .filter((i) => i.op === "arraypush" || i.op === "arrayreserve" || i.op === "arrayshrink" || i.op === "arrayclear" || i.op === "arrayset" || i.op === "arraymove" || i.op === "arraydrop")
     .map((i) => i.slot.id)));
   const slotIds = blocks.flatMap((b) => b.instructions
     .filter((i): i is Extract<IRInstruction, { op: "alloca" }> =>
@@ -122,9 +122,10 @@ function rewriteInstruction(instruction: IRInstruction, replace: (operand: IROpe
     case "array": case "arrayview": return { ...instruction, elements: instruction.elements.map(replace) };
     case "arrayset": return { ...instruction, index: replace(instruction.index), source: replace(instruction.source) };
     case "arraypush": return { ...instruction, source: replace(instruction.source) };
-    case "arraymove": case "arraydrop": return instruction;
+    case "arrayreserve": return { ...instruction, capacity: replace(instruction.capacity) };
+    case "arrayshrink": case "arrayclear": case "arraymove": case "arraydrop": return instruction;
     case "index": return { ...instruction, array: replace(instruction.array), index: replace(instruction.index) };
-    case "arraylen": return { ...instruction, array: replace(instruction.array) };
+    case "arraylen": case "arraycap": return { ...instruction, array: replace(instruction.array) };
     case "store": return { ...instruction, source: replace(instruction.source) };
     case "print": return { ...instruction, value: replace(instruction.value) };
     case "return": return instruction.value ? { ...instruction, value: replace(instruction.value) } : instruction;

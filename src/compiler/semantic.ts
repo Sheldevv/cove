@@ -237,7 +237,7 @@ export class SemanticAnalyzer {
       }
       case "MemberAccessExpression": {
         const target = this.expressionType(expression.target);
-        if (expression.member === "length" && this.arrayElementType(target)) result = "Int";
+        if ((expression.member === "length" || expression.member === "capacity") && this.arrayElementType(target)) result = "Int";
         else {
           this.error("COV4040", `unknown member '${expression.member}' on ${target}`, expression.span);
           result = "Unknown";
@@ -315,10 +315,20 @@ export class SemanticAnalyzer {
       const member = expression.callee;
       const receiverType = this.expressionType(member.target);
       const elementType = this.arrayElementType(receiverType);
-      if (member.member === "push" && elementType) {
-        if (member.target.kind !== "IdentifierExpression") this.error("COV4042", "Array.push() currently requires a named mutable array variable", member.target.span);
-        if (expression.arguments.length !== 1) this.error("COV4041", "Array.push() expects exactly one argument", expression.span);
-        for (const argument of expression.arguments) this.requireAssignable(elementType, this.expressionType(argument), argument.span, "Array.push() value");
+      if (elementType && ["push", "reserve", "shrinkToFit", "clear"].includes(member.member)) {
+        if (member.target.kind !== "IdentifierExpression") this.error("COV4042", `Array.${member.member}() currently requires a named mutable array variable`, member.target.span);
+        if (member.member === "push") {
+          if (expression.arguments.length !== 1) this.error("COV4041", "Array.push() expects exactly one argument", expression.span);
+          for (const argument of expression.arguments) this.requireAssignable(elementType, this.expressionType(argument), argument.span, "Array.push() value");
+        } else if (member.member === "reserve") {
+          if (expression.arguments.length !== 1) this.error("COV4045", "Array.reserve() expects exactly one capacity argument", expression.span);
+          for (const argument of expression.arguments) {
+            const argumentType = this.expressionType(argument);
+            if (argumentType !== "Int" && argumentType !== "Unknown") this.error("COV4046", `Array.reserve() capacity must be Int, not ${argumentType}`, argument.span);
+          }
+        } else {
+          if (expression.arguments.length !== 0) this.error("COV4047", `Array.${member.member}() expects no arguments`, expression.span);
+        }
         return "Void";
       }
       this.error("COV4040", `unknown array method '${member.member}'`, member.span);

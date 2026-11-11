@@ -1,6 +1,6 @@
 # Cove dynamic array runtime design
 
-Status: design accepted. The Milestone 16 compiler still implements fixed-size array views; this document specifies the next implementation work and must not be read as a claim that the APIs already compile.
+Status: design accepted. The Milestone 17 branch implements an initial owned dynamic-array runtime. This document records the target design and distinguishes implemented operations from remaining work.
 
 ## Goals
 
@@ -51,7 +51,7 @@ The source-level `Array<T>` type does not itself imply reference counting. The v
 - Allocation failure and maximum-capacity exhaustion use Cove's explicit error/panic policy; neither may cause an out-of-bounds write.
 - `reserve(n)` guarantees capacity of at least `n` without changing length.
 - `shrinkToFit()` requests capacity equal to length; it may be a no-op when the allocator cannot shrink in place.
-- `clear()` destroys all live elements and sets length to zero while retaining capacity.
+- `clear()` destroys all live elements and sets length to zero while retaining capacity. Generic element destruction is still pending; the current implementation is suitable for scalar/trivially stored elements.
 
 ## Element operations
 
@@ -85,12 +85,13 @@ The public C ABI for a Cove-owned dynamic array is not finalized. Do not expose 
 
 ## Implementation status (Milestone 17 branch)
 
-The initial vertical slice now implements owned local arrays with typed
+The initial vertical slice implements owned local arrays with typed
 `data`/`length`/`capacity` storage, geometric `push`, checked indexing,
-indexed writes, `.length`, explicit `move`, and function-return cleanup.
-Function parameters and vararg packs are represented as borrowed views. A
-borrowed parameter detaches on mutation, preserving the caller's allocation.
+indexed writes, `.length` and `.capacity`, explicit `move`, and function-return
+cleanup. `reserve`, `shrinkToFit`, and `clear` are also implemented. Function
+parameters and vararg packs are represented as borrowed views; a borrowed
+parameter detaches on allocation-changing mutation, preserving the caller's
+allocation. Mutated parameter buffers are released on function exit.
 
-This does not yet implement generic element drop traits, configurable initial/max capacity, removal/pop, slices, shared
-reference counting, or the full borrow/lifetime model. The public design above
+This does not yet implement generic element drop traits, configurable initial/max capacity constructors, removal/pop, slices, shared reference counting, or the full borrow/lifetime model. The public design above
 remains the target; these limitations are not considered completed gates.
