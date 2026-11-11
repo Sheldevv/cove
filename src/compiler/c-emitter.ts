@@ -178,6 +178,7 @@ export class CEmitter {
       case "AssignmentExpression": return this.emitAssignment(expression);
       case "ArrayLiteralExpression": return `(CoveArrayInt){ .data = (const long long[]){ ${expression.elements.map((item) => this.emitExpression(item)).join(", ")} }, .length = ${expression.elements.length} }`;
       case "IndexExpression": return `(${this.emitExpression(expression.target)}).data[(size_t)(${this.emitExpression(expression.index)})]`;
+      case "MemberAccessExpression": return `(${this.emitExpression(expression.target)}).${expression.member}`;
       case "CallExpression": return this.emitCall(expression);
     }
   }

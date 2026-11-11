@@ -3,7 +3,7 @@ import type { SourceFile, SourceSpan } from "../diagnostics/source.js";
 import { spanFromOffsets } from "../diagnostics/source.js";
 import { TokenKind } from "../lexer/token-kind.js";
 import type { Token } from "../lexer/token.js";
-import type { AssignmentExpression, ArrayLiteralExpression, BinaryExpression, BlockStatement, CallExpression, Declaration, Expression, FunctionDeclaration, IfStatement, IndexExpression, Parameter, Program, ReturnStatement, Statement, TypeNode, UnaryExpression, VariableDeclaration, WhileStatement, ForEachStatement } from "./ast.js";
+import type { AssignmentExpression, ArrayLiteralExpression, BinaryExpression, BlockStatement, CallExpression, Declaration, Expression, FunctionDeclaration, IfStatement, IndexExpression, MemberAccessExpression, Parameter, Program, ReturnStatement, Statement, TypeNode, UnaryExpression, VariableDeclaration, WhileStatement, ForEachStatement } from "./ast.js";
 
 export class Parser {
   private current = 0;
@@ -171,7 +171,7 @@ export class Parser {
     if (this.match(TokenKind.Equal, TokenKind.PlusEqual)) {
       const equals = this.previous();
       const value = this.assignment();
-      if (left.kind === "IdentifierExpression") {
+      if (left.kind === "IdentifierExpression" || left.kind === "IndexExpression") {
         const node: AssignmentExpression = { kind: "AssignmentExpression", target: left, value, ...(equals.kind === TokenKind.PlusEqual ? { operator: "+=" } : {}), span: this.join(left.span, value.span) };
         return node;
       }
@@ -224,6 +224,10 @@ export class Parser {
         const index = this.expression();
         const close = this.consume(TokenKind.RightBracket, "expected ']' after index");
         const node: IndexExpression = { kind: "IndexExpression", target: expression, index, span: this.join(expression.span, close.span) };
+        expression = node;
+      } else if (this.match(TokenKind.Dot)) {
+        const member = this.consume(TokenKind.Identifier, "expected member name after '.'");
+        const node: MemberAccessExpression = { kind: "MemberAccessExpression", target: expression, member: member.lexeme, span: this.join(expression.span, member.span) };
         expression = node;
       } else break;
     }

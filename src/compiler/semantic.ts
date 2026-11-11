@@ -1,7 +1,7 @@
 import type { DiagnosticBag } from "../diagnostics/diagnostic.js";
 import type { SourceFile, SourceSpan } from "../diagnostics/source.js";
 import type {
-  AssignmentExpression, BinaryExpression, BlockStatement, CallExpression, Expression,
+  AssignmentExpression, BinaryExpression, BlockStatement, CallExpression, Expression, MemberAccessExpression,
   FunctionDeclaration, Parameter, Program, Statement, TypeNode, VariableDeclaration,
 } from "../parser/ast.js";
 import type { CoveType, TypedProgram } from "./typed-ir.js";
@@ -174,7 +174,17 @@ export class SemanticAnalyzer {
     const scope = this.scopes.at(-1)!;
     if (scope.has(node.name)) this.error("COV4010", `variable '${node.name}' is already declared in this scope`, node.span);
     const declared = node.type ? this.resolveType(node.type, "Unknown") : "Unknown";
-    const actual = node.initializer ? this.expressionType(node.initializer) : "Unknown";
+    let actual = node.initializer ? this.expressionType(node.initializer) : "Unknown";
+    if (!node.type && node.initializer?.kind === "ArrayLiteralExpression" && node.initializer.elements.length === 0) {
+      this.error("COV4044", "an empty array literal needs an explicit Array<T> type", node.initializer.span);
+    }
+    if (node.type && node.initializer?.kind === "ArrayLiteralExpression" && node.initializer.elements.length === 0) {
+      const expectedElement = this.arrayElementType(declared);
+      if (expectedElement) {
+        actual = declared;
+        this.expressionTypes.set(node.initializer, declared);
+      }
+    }
     if (!node.type && !node.initializer) this.error("COV4011", `variable '${node.name}' needs a type or an initializer`, node.span);
     if (node.type && node.initializer) this.requireAssignable(declared, actual, node.initializer.span, `initializer for '${node.name}'`);
     const resolved = node.type ? declared : actual;
@@ -225,6 +235,15 @@ export class SemanticAnalyzer {
         result = `Array<${elementType}>`;
         break;
       }
+      case "MemberAccessExpression": {
+        const target = this.expressionType(expression.target);
+        if (expression.member === "length" && this.arrayElementType(target)) result = "Int";
+        else {
+          this.error("COV4040", `unknown member '${expression.member}' on ${target}`, expression.span);
+          result = "Unknown";
+        }
+        break;
+      }
       case "IndexExpression": {
         const target = this.expressionType(expression.target);
         const index = this.expressionType(expression.index);
@@ -265,8 +284,19 @@ export class SemanticAnalyzer {
 
   private assignmentType(expression: AssignmentExpression): TypeName {
     const target = expression.target;
-    if (target.kind !== "IdentifierExpression") return "Unknown";
     const valueType = this.expressionType(expression.value);
+    if (target.kind === "IndexExpression") {
+      if (target.target.kind !== "IdentifierExpression") this.error("COV4043", "indexed assignment currently requires a named mutable array variable", target.target.span);
+      const targetType = this.expressionType(target.target);
+      const indexType = this.expressionType(target.index);
+      if (indexType !== "Int" && indexType !== "Unknown") this.error("COV4034", `array index must be Int, not ${indexType}`, target.index.span);
+      const elementType = this.arrayElementType(targetType);
+      if (!elementType && targetType !== "Unknown") this.error("COV4035", `cannot index ${targetType}; expected an Array<T>`, target.target.span);
+      if (elementType) this.requireAssignable(elementType, valueType, expression.value.span, "array element assignment");
+      if (expression.operator === "+=" && elementType && (!this.isNumeric(elementType) || !this.isNumeric(valueType))) this.error("COV4036", "'+=' currently requires numeric operands", expression.span);
+      return elementType ?? "Unknown";
+    }
+    if (target.kind !== "IdentifierExpression") return "Unknown";
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       const scope = this.scopes[i]!;
       if (scope.has(target.name)) {
@@ -281,6 +311,20 @@ export class SemanticAnalyzer {
   }
 
   private callType(expression: CallExpression): TypeName {
+    if (expression.callee.kind === "MemberAccessExpression") {
+      const member = expression.callee;
+      const receiverType = this.expressionType(member.target);
+      const elementType = this.arrayElementType(receiverType);
+      if (member.member === "push" && elementType) {
+        if (member.target.kind !== "IdentifierExpression") this.error("COV4042", "Array.push() currently requires a named mutable array variable", member.target.span);
+        if (expression.arguments.length !== 1) this.error("COV4041", "Array.push() expects exactly one argument", expression.span);
+        for (const argument of expression.arguments) this.requireAssignable(elementType, this.expressionType(argument), argument.span, "Array.push() value");
+        return "Void";
+      }
+      this.error("COV4040", `unknown array method '${member.member}'`, member.span);
+      for (const argument of expression.arguments) this.expressionType(argument);
+      return "Unknown";
+    }
     if (expression.callee.kind !== "IdentifierExpression") {
       this.error("COV4020", "only named functions can be called in this compiler milestone", expression.callee.span);
       for (const argument of expression.arguments) this.expressionType(argument);

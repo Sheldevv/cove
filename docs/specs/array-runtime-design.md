@@ -81,3 +81,16 @@ The public C ABI for a Cove-owned dynamic array is not finalized. Do not expose 
 - GCC and Clang compile/run tests with strict warnings.
 - ASan/UBSan tests where supported.
 - Binary-size checks proving unused runtime pieces are absent.
+
+
+## Implementation status (Milestone 17 branch)
+
+The initial vertical slice now implements owned local arrays with typed
+`data`/`length`/`capacity` storage, geometric `push`, checked indexing,
+indexed writes, `.length`, explicit `move`, and function-return cleanup.
+Function parameters and vararg packs are represented as borrowed views. A
+borrowed parameter detaches on mutation, preserving the caller's allocation.
+
+This does not yet implement generic element drop traits, configurable initial/max capacity, removal/pop, slices, shared
+reference counting, or the full borrow/lifetime model. The public design above
+remains the target; these limitations are not considered completed gates.

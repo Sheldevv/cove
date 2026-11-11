@@ -7,8 +7,8 @@ interface Binding { readonly type: CoveType; moved: boolean; readonly borrowed: 
 type Environment = Map<string, Binding>[];
 
 /**
- * Initial ownership checker. String is Cove's first non-Copy type; `move(name)`
- * transfers its binding and makes subsequent reads of the source illegal.
+ * Initial ownership checker. String and owned Array values are non-Copy;
+ * `move(name)` transfers a binding and makes subsequent reads illegal.
  * This is a static ownership foundation, not yet a complete borrow checker.
  */
 export class OwnershipAnalyzer {
@@ -25,7 +25,13 @@ export class OwnershipAnalyzer {
     for (const parameter of fn.parameters) {
       env[0]!.set(parameter.name, { type: typed.parameterTypes.get(parameter) ?? "Unknown", moved: false, borrowed: true });
     }
-    this.checkStatements(fn.body.statements, env, typed);
+    const last = fn.body.statements.at(-1);
+    const hasImplicitReturn = fn.name !== "main" && (typed.functionReturnTypes.get(fn) ?? "Void") !== "Void"
+      && last?.kind === "ExpressionStatement";
+    this.checkStatements(hasImplicitReturn ? fn.body.statements.slice(0, -1) : fn.body.statements, env, typed);
+    if (hasImplicitReturn && last?.kind === "ExpressionStatement") {
+      this.checkTransferValue(last.expression, env, typed, "return");
+    }
   }
 
   private checkStatements(statements: readonly Statement[], env: Environment, typed: TypedProgram): void {
@@ -73,9 +79,12 @@ export class OwnershipAnalyzer {
   }
 
   private checkTransferValue(expression: Expression, env: Environment, typed: TypedProgram, context: string): void {
-    if (expression.kind === "IdentifierExpression" && typed.expressionTypes.get(expression) === "String") {
-      this.diagnostics.error("COV6004", `cannot copy String value '${expression.name}' into ${context}`, this.file, expression.span,
-        `Use move(${expression.name}) to transfer ownership, or pass the value directly to a borrowing function parameter.`);
+    if (expression.kind === "IdentifierExpression") {
+      const type = typed.expressionTypes.get(expression) ?? "Unknown";
+      if (type === "String" || /^Array<.+>$/.test(type)) {
+        this.diagnostics.error("COV6004", `cannot copy ${type} value '${expression.name}' into ${context}`, this.file, expression.span,
+          `Use move(${expression.name}) to transfer ownership, or pass the value directly to a borrowing function parameter.`);
+      }
     }
     this.checkExpression(expression, env, typed, expression.kind === "CallExpression" && expression.callee.kind === "IdentifierExpression" && expression.callee.name === "move");
   }
@@ -86,6 +95,7 @@ export class OwnershipAnalyzer {
       case "LiteralExpression": break;
       case "ArrayLiteralExpression": for (const element of expression.elements) this.checkExpression(element, env, typed); break;
       case "IndexExpression": this.checkExpression(expression.target, env, typed); this.checkExpression(expression.index, env, typed); break;
+      case "MemberAccessExpression": this.checkExpression(expression.target, env, typed); break;
       case "GroupExpression": this.checkExpression(expression.expression, env, typed); break;
       case "UnaryExpression": this.checkExpression(expression.operand, env, typed); break;
       case "BinaryExpression":
@@ -132,7 +142,7 @@ export class OwnershipAnalyzer {
           if (binding?.borrowed) {
             this.diagnostics.error("COV6003", `cannot move borrowed parameter '${argument.name}'`, this.file, argument.span,
               "String parameters are borrowed in this milestone. Ownership-taking parameter annotations will be added with the borrow checker.");
-          } else if (binding?.type === "String") binding.moved = true;
+          } else if (binding?.type === "String" || /^Array<.+>$/.test(binding?.type ?? "")) binding!.moved = true;
           return;
         }
         this.checkExpression(expression.callee, env, typed);
@@ -146,7 +156,7 @@ export class OwnershipAnalyzer {
     const binding = this.lookup(name, env);
     if (binding?.moved) {
       this.diagnostics.error("COV6001", `use of moved value '${name}'`, this.file, span,
-        `The String value '${name}' was moved. Assign a new value to '${name}' before using it again.`);
+        `The value '${name}' was moved. Assign a new value to '${name}' before using it again.`);
     }
   }
 

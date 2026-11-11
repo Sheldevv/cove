@@ -10,6 +10,11 @@ export type IRInstruction =
   | { readonly op: "unary"; readonly result: IRValue; readonly operator: string; readonly operand: IROperand; readonly span: SourceSpan }
   | { readonly op: "call"; readonly result?: IRValue; readonly callee: string; readonly args: readonly IROperand[]; readonly span: SourceSpan }
   | { readonly op: "array"; readonly result: IRValue; readonly elements: readonly IROperand[]; readonly span: SourceSpan }
+  | { readonly op: "arrayview"; readonly result: IRValue; readonly elements: readonly IROperand[]; readonly span: SourceSpan }
+  | { readonly op: "arrayset"; readonly slot: IRValue; readonly index: IROperand; readonly source: IROperand; readonly span: SourceSpan }
+  | { readonly op: "arraypush"; readonly slot: IRValue; readonly source: IROperand; readonly span: SourceSpan }
+  | { readonly op: "arraymove"; readonly result: IRValue; readonly slot: IRValue; readonly span: SourceSpan }
+  | { readonly op: "arraydrop"; readonly slot: IRValue; readonly span: SourceSpan }
   | { readonly op: "index"; readonly result: IRValue; readonly array: IROperand; readonly index: IROperand; readonly boundsCheck: boolean; readonly span: SourceSpan }
   | { readonly op: "arraylen"; readonly result: IRValue; readonly array: IROperand; readonly span: SourceSpan }
   | { readonly op: "copy"; readonly result: IRValue; readonly source: IROperand; readonly span: SourceSpan }
@@ -43,6 +48,8 @@ class FunctionLowerer {
   private readonly blocks: IRBasicBlock[] = [];
   private current!: IRBasicBlock;
   private readonly locals = new Map<string, IRValue>();
+  private readonly localScopeChanges: { name: string; previous?: IRValue }[][] = [];
+  private readonly arrayScopeSlots: IRValue[][] = [[]];
   private readonly directLocals = new Map<string, IRValue>();
   private readonly function: IRFunction;
   constructor(private readonly typed: TypedProgram, private readonly fn: FunctionDeclaration) {
@@ -78,11 +85,28 @@ class FunctionLowerer {
   private lowerStatements(statements: readonly Statement[]): void { for (const statement of statements) { if (this.terminated()) break; this.lowerStatement(statement); } }
   private lowerStatement(s: Statement): void {
     switch (s.kind) {
-      case "BlockStatement": this.lowerStatements(s.statements); break;
+      case "BlockStatement": {
+        this.localScopeChanges.push([]);
+        this.arrayScopeSlots.push([]);
+        this.lowerStatements(s.statements);
+        if (!this.terminated()) {
+          for (const slot of this.arrayScopeSlots.at(-1)!) this.emit({ op: "arraydrop", slot, span: s.span });
+        }
+        const changes = this.localScopeChanges.pop()!;
+        for (const change of changes.reverse()) {
+          if (change.previous) this.locals.set(change.name, change.previous);
+          else this.locals.delete(change.name);
+        }
+        this.arrayScopeSlots.pop();
+        break;
+      }
       case "VariableDeclaration": {
         const type = this.typed.variableTypes.get(s) ?? "Unknown";
         const slot = this.value(type);
+        const previous = this.locals.get(s.name);
+        this.localScopeChanges.at(-1)?.push({ name: s.name, ...(previous ? { previous } : {}) });
         this.locals.set(s.name, slot);
+        if (/^Array<.+>$/.test(type)) this.arrayScopeSlots.at(-1)!.push(slot);
         this.emit({ op: "alloca", result: slot, span: s.span });
         if (s.initializer) this.emit({ op: "store", slot, source: this.expression(s.initializer), span: s.span });
         break;
@@ -148,6 +172,23 @@ class FunctionLowerer {
       case "UnaryExpression": { const operand = this.expression(e.operand); if (e.operator === "&" || e.operator === "&mut") return operand; const result = this.value(type); this.emit({ op: "unary", result, operator: e.operator, operand, span: e.span }); return { kind: "value", value: result }; }
       case "BinaryExpression": { const left = this.expression(e.left); const right = this.expression(e.right); const result = this.value(type); this.emit({ op: "binary", result, operator: e.operator, left, right, span: e.span }); return { kind: "value", value: result }; }
       case "AssignmentExpression": {
+        if (e.target.kind === "IndexExpression" && e.target.target.kind === "IdentifierExpression") {
+          const slot = this.locals.get(e.target.target.name);
+          const index = this.expression(e.target.index);
+          let source = this.expression(e.value);
+          if (slot && e.operator === "+=") {
+            const array = this.value(slot.type);
+            this.emit({ op: "load", result: array, slot, span: e.span });
+            const elementType = this.typed.expressionTypes.get(e.target) ?? "Unknown";
+            const previous = this.value(elementType);
+            this.emit({ op: "index", result: previous, array: { kind: "value", value: array }, index, boundsCheck: true, span: e.span });
+            const combined = this.value(elementType);
+            this.emit({ op: "binary", result: combined, operator: "+", left: { kind: "value", value: previous }, right: source, span: e.span });
+            source = { kind: "value", value: combined };
+          }
+          if (slot) this.emit({ op: "arrayset", slot, index, source, span: e.span });
+          return source;
+        }
         let source = this.expression(e.value);
         if (e.target.kind === "IdentifierExpression") {
           const slot = this.locals.get(e.target.name);
@@ -173,9 +214,30 @@ class FunctionLowerer {
         const result = this.value(type); this.emit({ op: "index", result, array, index, boundsCheck: true, span: e.span });
         return { kind: "value", value: result };
       }
+      case "MemberAccessExpression": {
+        const array = this.expression(e.target);
+        const result = this.value(type);
+        this.emit({ op: "arraylen", result, array, span: e.span });
+        return { kind: "value", value: result };
+      }
       case "CallExpression": {
+        if (e.callee.kind === "MemberAccessExpression" && e.callee.member === "push" && e.callee.target.kind === "IdentifierExpression") {
+          const slot = this.locals.get(e.callee.target.name);
+          const source = e.arguments[0] ? this.expression(e.arguments[0]) : this.literal(null, "Null");
+          if (slot) this.emit({ op: "arraypush", slot, source, span: e.span });
+          return this.literal(null, "Void");
+        }
         if (e.callee.kind === "IdentifierExpression" && e.callee.name === "move") {
-          return e.arguments[0] ? this.expression(e.arguments[0]) : this.literal(null, "Null");
+          const argument = e.arguments[0];
+          if (argument?.kind === "IdentifierExpression" && /^Array<.+>$/.test(this.typed.expressionTypes.get(argument) ?? "")) {
+            const slot = this.locals.get(argument.name);
+            if (slot) {
+              const result = this.value(slot.type);
+              this.emit({ op: "arraymove", result, slot, span: e.span });
+              return { kind: "value", value: result };
+            }
+          }
+          return argument ? this.expression(argument) : this.literal(null, "Null");
         }
         const callee = e.callee.kind === "IdentifierExpression" ? e.callee.name : "<indirect>";
         const target = this.typed.ast.declarations.find((d) => d.kind === "FunctionDeclaration" && d.name === callee);
@@ -186,9 +248,20 @@ class FunctionLowerer {
           const rest = e.arguments.slice(varargIndex).map((a) => this.expression(a));
           const elementType = target!.kind === "FunctionDeclaration" ? this.typed.parameterTypes.get(target!.parameters[varargIndex]!)?.match(/^Array<(.+)>$/)?.[1] ?? "Unknown" : "Unknown";
           const arrayType = `Array<${elementType}>`;
-          const array = this.value(arrayType); this.emit({ op: "array", result: array, elements: rest, span: e.span });
+          const array = this.value(arrayType); this.emit({ op: "arrayview", result: array, elements: rest, span: e.span });
           args.push({ kind: "value", value: array });
-        } else args = e.arguments.map((a) => this.expression(a));
+        } else args = e.arguments.map((a, index) => {
+          const expected = target?.kind === "FunctionDeclaration"
+            ? this.typed.parameterTypes.get(target.parameters[index]!)
+            : undefined;
+          if (expected && /^Array<.+>$/.test(expected) && a.kind === "ArrayLiteralExpression") {
+            const elements = a.elements.map((element) => this.expression(element));
+            const view = this.value(expected);
+            this.emit({ op: "arrayview", result: view, elements, span: a.span });
+            return { kind: "value", value: view } as IROperand;
+          }
+          return this.expression(a);
+        });
         if (callee === "print") { if (args[0]) this.emit({ op: "print", value: args[0], span: e.span }); return this.literal(null, "Void"); }
         const result = type === "Void" ? undefined : this.value(type); this.emit({ op: "call", ...(result ? { result } : {}), callee, args, span: e.span });
         return result ? { kind: "value", value: result } : this.literal(null, "Void");
@@ -233,6 +306,11 @@ export function formatIR(module: IRModule): string {
         case "store": lines.push(`    store %${i.slot.id}, ${operand(i.source)}`); break;
         case "call": lines.push(`    ${result}call @${i.callee}(${i.args.map(operand).join(", ")})`); break;
         case "array": lines.push(`    ${result}array [${i.elements.map(operand).join(", ")}]`); break;
+        case "arrayview": lines.push(`    ${result}arrayview [${i.elements.map(operand).join(", ")}]`); break;
+        case "arrayset": lines.push(`    arrayset %${i.slot.id}[${operand(i.index)}] = ${operand(i.source)}`); break;
+        case "arraypush": lines.push(`    arraypush %${i.slot.id}, ${operand(i.source)}`); break;
+        case "arraymove": lines.push(`    ${result}arraymove %${i.slot.id}`); break;
+        case "arraydrop": lines.push(`    arraydrop %${i.slot.id}`); break;
         case "index": lines.push(`    ${result}index ${operand(i.array)}[${operand(i.index)}]`); break;
         case "arraylen": lines.push(`    ${result}length ${operand(i.array)}`); break;
         case "print": lines.push(`    print ${operand(i.value)}`); break;

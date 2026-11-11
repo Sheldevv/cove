@@ -69,17 +69,29 @@ assignments, `Array<T>` / `T[]` types, array literals and checked indexing,
 
 ### Arrays today
 
-The current array implementation is a **fixed-size, non-owning pointer/length
-view**. It supports array literals, checked indexed reads, vararg packing, and
-postfix iteration. It does not yet provide dynamic growth, `push`/`pop`, general
-element mutation, slices, or collection ownership. The broader array API in the
-specifications is a design target, not an implemented feature.
+The first dynamic-array runtime slice is implemented on the Milestone 17
+branch. Owned local `Array<T>` values use typed pointer/length/capacity storage;
+array literals allocate storage, `push()` grows geometrically, `.length` reads
+the current length, and indexed reads/writes are bounds checked. `+=` is also
+supported for indexed numeric elements.
+
+Owned arrays are non-Copy: use `move(array)` to transfer ownership. Local array
+allocations are released on function returns, including early returns. Array
+parameters and vararg packs remain borrowed views; a parameter detaches into
+its own allocation before mutation, so changing it does not mutate the caller's
+array.
+
+Nested block locals are dropped at block exit, including on each loop
+iteration; function-scope arrays are dropped on every return. This is an initial
+vertical slice, not the complete collection API. `pop`/`Option`, `removeAt`,
+capacity controls, slices, shared ownership, and generic element destructors
+remain future work.
 
 ### Ownership and runtime limitations
 
 Ownership and borrowing are foundations, not a complete borrow checker or
 destructor system. `String` move checking and call-scoped borrow checks are
-implemented, but full lifetime checking, automatic lexical-scope cleanup,
+implemented, but full lifetime checking, complete ownership-aware cleanup for all types,
 user-defined destructors, and a stable public C ABI are not yet available.
 String concatenation allocations are tracked by a generated process-lifetime
 arena and released at process exit; this is an interim, single-threaded policy.

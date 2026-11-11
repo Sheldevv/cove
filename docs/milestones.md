@@ -136,13 +136,25 @@ Remaining interoperability work: `.cove.h` parsing and mapping, source-level ext
 This is deliberately an initial fixed-size array-view implementation, not the full dynamic collection runtime in the data-model specification. Dynamic growth, `push`/`pop`, element mutation, slices, general iterator abstractions, and ownership-aware destruction remain future work.
 
 
-## Milestone 17 — Dynamic array runtime (planned; design accepted)
+## Milestone 17 — Dynamic array runtime (in progress; initial vertical slice)
 
-- Replace the current fixed-size-only `Array<T>` representation for owned arrays with typed pointer/length/capacity storage.
-- Preserve borrowed array views for varargs and C interop.
-- Add dynamic literal allocation, automatic geometric growth, `push`, length access, mutable indexed assignment, and checked indexed reads.
-- Add capacity overflow checks and demand-driven CoveSTD allocation support.
-- Integrate deterministic cleanup before advertising owned dynamic arrays as complete.
-- Defer `pop`/`Option`, `popOrNull`/nullable types, slices, shared reference counting, sorting, searching, and higher-order methods to follow-up slices where their type-system dependencies are available.
+- [x] Add member-access AST/parser support and indexed assignment syntax.
+- [x] Add semantic checks for `.length`, `push(value)`, indexed writes, and element types.
+- [x] Add typed owned array storage (`data`, `length`, `capacity`, `owns_data`) in generated C.
+- [x] Allocate array literals and support explicitly typed empty arrays.
+- [x] Grow with geometric `realloc` and guard allocation-size/capacity overflow.
+- [x] Add mutable indexed writes and indexed numeric `+=`.
+- [x] Keep vararg packs and direct array-literal arguments as borrowed views.
+- [x] Treat owned arrays as non-Copy and lower `move(array)` into a transfer that clears the source slot.
+- [x] Detach borrowed array parameters before mutation so callers retain their original allocation and contents.
+- [x] Release owned array slots before function returns, including early returns.
+- [x] Add generated-C integration tests for growth, mutation, borrowed parameters, returned arrays, and moves.
 
-Milestone 17 has not yet been implemented. The current compiler remains at the verified Milestone 16 feature set.
+Remaining gates:
+- [x] Cleanup at nested block exits, loop-iteration exits, and function returns (including early returns).
+- [ ] General element destruction/move traits for nested or non-Copy element types.
+- [ ] Initial/max capacity constructor options and `reserve`/`shrinkToFit`.
+- [ ] `pop`/`Option`, `popOrNull`/nullable types, removal, slices, and shared ownership.
+- [ ] Broader sanitizer and compiler matrix testing.
+
+The current implementation is an initial vertical slice. Do not treat Milestone 17 as complete until the remaining ownership, cleanup, and runtime gates pass.

@@ -34,6 +34,12 @@ export function optimizeIR(input: IRModule): OptimizationResult {
           instructions.push({ ...instruction, source });
           continue;
         }
+        if (instruction.op === "arraypush" || instruction.op === "arrayset" || instruction.op === "arraymove" || instruction.op === "arraydrop") {
+          // Mutating an array through its slot invalidates any forwarded aggregate load.
+          memory.delete(valueKey(instruction.slot));
+          instructions.push(instruction);
+          continue;
+        }
         if (instruction.op === "load") {
           const known = memory.get(valueKey(instruction.slot));
           if (known) {
@@ -107,7 +113,10 @@ function rewriteOperands(i: IRInstruction, replace: (o: IROperand) => IROperand)
     case "binary": return { ...i, left: replace(i.left), right: replace(i.right) };
     case "unary": return { ...i, operand: replace(i.operand) };
     case "call": return { ...i, args: i.args.map(replace) };
-    case "array": return { ...i, elements: i.elements.map(replace) };
+    case "array": case "arrayview": return { ...i, elements: i.elements.map(replace) };
+    case "arrayset": return { ...i, index: replace(i.index), source: replace(i.source) };
+    case "arraypush": return { ...i, source: replace(i.source) };
+    case "arraymove": case "arraydrop": return i;
     case "index": return { ...i, array: replace(i.array), index: replace(i.index) };
     case "arraylen": return { ...i, array: replace(i.array) };
     case "copy": return { ...i, source: replace(i.source) };
@@ -180,7 +189,7 @@ function eliminateDeadValues(blocks: readonly IRBasicBlock[]): { blocks: IRBasic
     for (const block of result) for (const i of block.instructions) {
       switch (i.op) {
         case "binary": markValue(i.left); markValue(i.right); break; case "unary": markValue(i.operand); break;
-        case "call": i.args.forEach(markValue); break; case "array": i.elements.forEach(markValue); break; case "index": markValue(i.array); markValue(i.index); break; case "arraylen": markValue(i.array); break; case "copy": markValue(i.source); break;
+        case "call": i.args.forEach(markValue); break; case "array": case "arrayview": i.elements.forEach(markValue); break; case "arrayset": markValue(i.index); markValue(i.source); live.add(valueKey(i.slot)); break; case "arraypush": markValue(i.source); live.add(valueKey(i.slot)); break; case "arraymove": case "arraydrop": live.add(valueKey(i.slot)); break; case "index": markValue(i.array); markValue(i.index); break; case "arraylen": markValue(i.array); break; case "copy": markValue(i.source); break;
         case "store": markValue(i.source); live.add(valueKey(i.slot)); break;
         case "load": live.add(valueKey(i.slot)); break;
         case "alloca": break;

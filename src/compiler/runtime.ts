@@ -94,7 +94,10 @@ function operands(instruction: IRInstruction): IROperand[] {
     case "binary": return [instruction.left, instruction.right];
     case "unary": return [instruction.operand];
     case "call": return [...instruction.args];
-    case "array": return [...instruction.elements];
+    case "array": case "arrayview": return [...instruction.elements];
+    case "arrayset": return [instruction.index, instruction.source];
+    case "arraypush": return [instruction.source];
+    case "arraymove": case "arraydrop": return [];
     case "index": return [instruction.array, instruction.index];
     case "arraylen": return [instruction.array];
     case "copy": return [instruction.source];
