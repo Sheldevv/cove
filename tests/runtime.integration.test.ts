@@ -307,3 +307,70 @@ fun main(): Int {
   const boundsRun = spawnSync(boundsExecutable, [], { encoding: "utf8" });
   assert.notEqual(boundsRun.status, 0, "out-of-bounds indexed writes must terminate safely");
 });
+
+test("generated C integration: reserve, shrinkToFit, and clear preserve array semantics", { skip: !hasGcc }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "cove-array-capacity-"));
+  t.after(async () => rm(directory, { recursive: true, force: true }));
+  const source = `fun mutateBorrowed(values: Array<Int>) {
+    print(values.capacity);
+    values.reserve(32);
+    values.push(777);
+    values.shrinkToFit();
+    values.clear();
+    print(values.length);
+    print(values.capacity);
+}
+fun main(): Int {
+    let values: Array<Int> = [10, 20, 30];
+    values.reserve(64);
+    print(values.capacity);
+    print(values.length);
+    values.push(40);
+    values.shrinkToFit();
+    print(values.capacity);
+    print(values.length);
+    print(values[3]);
+    values.clear();
+    print(values.length);
+    print(values.capacity);
+    values.push(99);
+    print(values.capacity);
+    print(values.length);
+    print(values[0]);
+    mutateBorrowed(values);
+    print(values.length);
+    print(values[0]);
+    return 0;
+}`;
+  const compiled = compileToC({ path: "array-capacity.cove", text: source });
+  assert.equal(compiled.diagnostics.hasErrors, false, compiled.diagnostics.items.map((d) => d.message).join("; "));
+  assert.match(compiled.cSource, /cove_array_reserve_Int/);
+  assert.match(compiled.cSource, /cove_array_shrink_to_fit_Int/);
+  assert.match(compiled.cSource, /cove_array_clear_Int/);
+  const cPath = join(directory, "array-capacity.c");
+  const executable = join(directory, "array-capacity");
+  await writeFile(cPath, compiled.cSource, "utf8");
+  const build = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", cPath, "-o", executable], { encoding: "utf8" });
+  assert.equal(build.status, 0, `GCC build failed:\\n${build.stderr}`);
+  const run = spawnSync(executable, [], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout, "64\n3\n4\n4\n40\n0\n4\n4\n1\n99\n1\n0\n2\n1\n99\n");
+
+  const sanitizerExecutable = join(directory, "array-capacity-asan");
+  const sanitizerBuild = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", "-fsanitize=address,undefined", "-fno-omit-frame-pointer", cPath, "-o", sanitizerExecutable], { encoding: "utf8" });
+  if (sanitizerBuild.status === 0) {
+    const sanitizedRun = spawnSync(sanitizerExecutable, [], { encoding: "utf8", env: { ...process.env, ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1" } });
+    assert.equal(sanitizedRun.status, 0, `ASan/UBSan reported an array ownership issue:\n${sanitizedRun.stderr}`);
+    assert.equal(sanitizedRun.stdout, run.stdout);
+  }
+
+  const negativeCapacity = compileToC({ path: "array-reserve-negative.cove", text: `fun main() { let values: Array<Int> = []; values.reserve(-1); }` });
+  assert.equal(negativeCapacity.diagnostics.hasErrors, false, negativeCapacity.diagnostics.items.map((d) => d.message).join("; "));
+  const negativeC = join(directory, "array-reserve-negative.c");
+  const negativeExe = join(directory, "array-reserve-negative");
+  await writeFile(negativeC, negativeCapacity.cSource, "utf8");
+  const negativeBuild = spawnSync("gcc", ["-std=c11", "-Wall", "-Wextra", "-Wpedantic", negativeC, "-o", negativeExe], { encoding: "utf8" });
+  assert.equal(negativeBuild.status, 0, negativeBuild.stderr);
+  const negativeRun = spawnSync(negativeExe, [], { encoding: "utf8" });
+  assert.notEqual(negativeRun.status, 0, "negative reserve capacity must fail safely");
+});

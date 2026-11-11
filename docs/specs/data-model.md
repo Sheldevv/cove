@@ -186,4 +186,4 @@ The following API and behavior decisions are accepted:
 - Automatic capacity management plus `reserve`, `shrinkToFit`, and `clear`.
 - Hybrid storage: owned arrays use pointer/length/capacity; shared arrays use reference-counted storage; borrowed arrays use pointer/length; fixed-size arrays use inline storage where practical; slices use pointer/length plus lifetime tracking.
 
-The design does not imply that these APIs are already implemented. In particular, current Milestone 16 only supports fixed-size array views, indexed reads, varargs, and postfix iteration.
+The design does not imply that every API is already implemented. Milestone 17 currently provides owned dynamic arrays, growth, push, indexed reads/writes, `.length`, `.capacity`, `reserve`, `shrinkToFit`, and `clear`; removal/pop, slices, shared ownership, and generic element destruction remain future work.

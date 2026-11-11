@@ -1,15 +1,27 @@
-# Data model examples (design fixtures)
+# Data model examples
 
-These snippets document the accepted Cove data-model direction. The compiler now supports the initial fixed-size array-view slice shown in `vararg-array-sum.cove`; the remaining snippets are design fixtures, not claims that their full features are implemented. The parser, semantic analyzer, IR, C backend, and CoveSTD runtime must each implement a feature before it is considered available.
+These snippets document the accepted Cove data-model direction. The executable
+array example demonstrates the current Milestone 17 dynamic-array API. The
+remaining maps, objects, and JSON snippets are design fixtures, not claims that
+their full features are implemented. A feature is available only after the
+parser, semantic analyzer, IR, C backend, and runtime support it.
 
 ## Arrays
 
-```cove
-let values: Array<Int> = [1, 2, 3];
-let matrix: Int[][] = [[1, 2], [3, 4]];
-values.push(4);
-for (value in values) { print(value); }
+The current compiler supports `Array<T>` / `T[]`, array literals, checked
+indexing, indexed assignment, `push`, `.length`, `.capacity`, `reserve`,
+`shrinkToFit`, and `clear`. Owned arrays use explicit moves and deterministic
+cleanup; borrowed parameters detach before allocation-changing mutation.
+
+Run the executable example with:
+
+```sh
+cove run examples/data-model/arrays.cove
 ```
+
+The separate `vararg-array-sum.cove` example demonstrates borrowed vararg
+arrays and postfix iteration. Removal, pop/Option, nullable types, slices,
+shared ownership, and generic element destruction are still in development.
 
 ## Ordered and unordered maps
 
@@ -33,10 +45,6 @@ metadata.status = "in development";
 
 ```cove
 import json;
-let value = json.parse("{\"name\":\"Cove\"}");
+let value = json.parse("{\\"name\\":\\"Cove\\"}");
 let output = json.stringifyPretty(value);
 ```
-
-## Executable initial array/vararg slice
-
-Run `cove run examples/data-model/vararg-array-sum.cove` from the repository root. This example demonstrates `Array<Int>`, indexed reads, `vararg<Int>`, and postfix iteration. It does not demonstrate dynamic array growth or mutation.

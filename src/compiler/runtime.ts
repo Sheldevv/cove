@@ -97,9 +97,10 @@ function operands(instruction: IRInstruction): IROperand[] {
     case "array": case "arrayview": return [...instruction.elements];
     case "arrayset": return [instruction.index, instruction.source];
     case "arraypush": return [instruction.source];
-    case "arraymove": case "arraydrop": return [];
+    case "arrayreserve": return [instruction.capacity];
+    case "arrayshrink": case "arrayclear": case "arraymove": case "arraydrop": return [];
     case "index": return [instruction.array, instruction.index];
-    case "arraylen": return [instruction.array];
+    case "arraylen": case "arraycap": return [instruction.array];
     case "copy": return [instruction.source];
     case "phi": return instruction.incoming.map((entry) => entry.value);
     case "store": return [instruction.source];
